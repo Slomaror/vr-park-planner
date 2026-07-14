@@ -1,60 +1,56 @@
 import streamlit as st
+from datetime import datetime, timedelta
 
 st.set_page_config(layout="wide")
-st.title("VR-Парк: Планировщик")
+st.title("VR-Парк: Умный планировщик")
 
 # --- Справочники ---
-TARIFF_DURATIONS = {
-    "Серебро": 120,
-    "Золото": 180,
-    "Платина": 240,
-    "Титан": 240,
-    "Изумруд": 240,
-    "Бриллиант": 360
+TARIFF_DATA = {
+    "Серебро": 120, "Золото": 180, "Платина": 240, 
+    "Титан": 240, "Изумруд": 240, "Бриллиант": 360
 }
-ALL_TARIFFS = list(TARIFF_DURATIONS.keys())
-ADD_ONS = ["Нет", "10 катаний", "Безлимит на аттракционы"]
-ZONES = ["VR-Арена (1)", "VR-Арена (2)", "VR-Арена (Объединенная)", "Аура", "Пиксель", "Аттракционы", "Комната отдыха"]
-
-# --- Логика состояния ---
-if 'duration' not in st.session_state:
-    st.session_state.duration = TARIFF_DURATIONS[ALL_TARIFFS[0]]
+VARIANTS = ["Частый", "Активный", "Сбалансированный"]
 
 # --- Интерфейс ---
-mode = st.radio("Режим:", ["Готовый тариф", "Индивидуальный"], horizontal=True)
+col1, col2, col3 = st.columns(3)
+with col1:
+    tariff = st.selectbox("Тариф:", list(TARIFF_DATA.keys()))
+with col2:
+    duration = st.number_input("Длительность (мин):", 60, 480, TARIFF_DATA[tariff])
+with col3:
+    start_time = st.time_input("Время начала:", value=datetime.strptime("12:00", "%H:%M").time())
 
-if mode == "Готовый тариф":
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        # При смене тарифа обновляем длительность
-        pkg = st.selectbox("Тариф:", ALL_TARIFFS)
-        if st.button("Применить тариф"):
-            st.session_state.duration = TARIFF_DURATIONS[pkg]
-    with col2:
-        add_on = st.selectbox("Доп. опция:", ADD_ONS)
-    with col3:
-        # Поле ввода, которое можно менять вручную
-        duration = st.number_input("Длительность (мин):", 60, 480, st.session_state.duration)
-        st.session_state.duration = duration
-else:
-    selected_zones = st.multiselect("Выберите зоны:", ZONES)
-    duration = st.number_input("Длительность (мин):", 60, 480, st.session_state.duration)
+# --- Движок генерации (Логика) ---
+def get_schedule(variant, duration, start_time):
+    # Базовые блоки
+    sbor = 15
+    pozdrav = 10
+    game_time = duration - sbor - pozdrav
+    
+    # Имитация сборки блоков (для примера "Золото")
+    if variant == "Частый":
+        return [("Сбор", sbor), ("Арена (цельная)", game_time * 0.7), ("Аура + Катания", game_time * 0.3), ("Поздравление", pozdrav)]
+    elif variant == "Сбалансированный":
+        return [("Сбор", sbor), ("Арена (ч.1)", game_time * 0.35), ("Перекус", 15), ("Арена (ч.2)", game_time * 0.35), ("Аура", game_time * 0.3), ("Поздравление", pozdrav)]
+    else: # Активный
+        return [("Сбор", sbor), ("Нон-стоп (Арена+Аура+Катания)", game_time), ("Поздравление", pozdrav)]
 
-st.write("---")
-
-# --- Логика генерации ---
+# --- Отображение ---
 cols = st.columns(3)
-variants = ["Частый", "Активный", "Сбалансированный"]
-
-for i, var in enumerate(variants):
+for i, var in enumerate(VARIANTS):
     with cols[i]:
         with st.container(border=True):
             st.subheader(var)
-            st.write(f"Длительность: {st.session_state.duration} мин")
+            current_time = datetime.combine(datetime.today(), start_time)
+            lines = []
             
-            if st.button("✅ Подходит", key=f"ok_{var}"):
-                st.success("Скопировано!")
-            if st.button("🔄 Другой формат", key=f"alt_{var}"):
-                st.rerun()
-            if st.button("❌ Плохой", key=f"bad_{var}"):
-                st.rerun()
+            for task, minutes in get_schedule(var, duration, start_time):
+                end_time = current_time + timedelta(minutes=minutes)
+                lines.append(f"{current_time.strftime('%H:%M')}-{end_time.strftime('%H:%M')} - {task}")
+                current_time = end_time
+            
+            text_out = "\n".join(lines)
+            st.text(text_out)
+            
+            if st.button("✅ Подходит (Скопировать)", key=f"copy_{var}"):
+                st.info("Скопировано!") # Можно добавить JS для авто-копирования
