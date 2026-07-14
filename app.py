@@ -1,23 +1,24 @@
 import streamlit as st
 import pandas as pd
 
-st.title("Планировщик мероприятий")
+st.title("Планировщик VR-парка")
 
-# Ссылка на данные
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1SOkxp55acIcaTUt_dKMtoab0Vo2ntExiQAnwPgk9hFk/export?format=csv&gid=636493329"
+# 1. Выбор типа мероприятия
+event_type = st.radio("Выберите тип:", ["Готовое мероприятие", "Индивидуальное"])
 
-@st.cache_data(ttl=60)
-def load_data():
-    return pd.read_csv(SHEET_URL, header=3)
+# 2. Логика предложений (здесь можно "тренировать" планировщик)
+if event_type == "Готовое мероприятие":
+    options = ["Пакет 'День рождения'", "Пакет 'Корпоратив'", "Пакет 'Мини'"]
+    selected = st.selectbox("Выберите пакет:", options)
+    # Здесь можно добавить логику подгрузки разных данных из таблицы
+elif event_type == "Индивидуальное":
+    st.write("Добавьте активности вручную:")
+    # Тут можно добавить поля ввода st.text_input
 
-df = load_data()
-df_clean = df.dropna(subset=['Название зоны'])
-df_final = df_clean[['Название зоны', 'Начало', 'Конец']]
+# 3. Функция копирования в буфер обмена (без скачивания файлов)
+st.write("---")
+# Генерируем текст расписания для буфера
+text_to_copy = "Ваше расписание:\n1. VR-Арена: 12:00-13:00\n2. Гонки: 13:00-13:15" 
 
-st.table(df_final)
-
-# Формируем текст для копирования
-text_to_copy = df_final.to_string(index=False)
-
-# Выводим текстовое поле, которое удобно выделить и скопировать
-st.text_area("Скопируйте расписание отсюда (Ctrl+C):", value=text_to_copy, height=200)
+st.text_area("Скопируйте текст:", value=text_to_copy, height=150)
+st.info("Выделите текст выше и нажмите Ctrl+C")
