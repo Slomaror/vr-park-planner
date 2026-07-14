@@ -1,23 +1,20 @@
 import streamlit as st
 import pandas as pd
 
-# Заголовок вашего сайта
 st.title("Планировщик мероприятий")
 
-# Ссылка на вашу таблицу (вставьте свою ссылку сюда)
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1SOkxp55acIcaTUt_dKMtoab0Vo2ntExiQAnwPgk9hFk/edit?gid=636493329#gid=636493329"
+# Ссылка на вашу Google Таблицу
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1SOkxp55acIcaTUt_dKMtoab0Vo2ntExiQAnwPgk9hFk/export?format=csv"
 
 @st.cache_data(ttl=60)
 def load_data():
-    csv_url = SHEET_URL.replace("/edit#gid=", "/export?format=csv&gid=")
-    return pd.read_csv(csv_url)
+    return pd.read_csv(SHEET_URL)
 
-# Загрузка данных из листа "Конструктор"
+# Загружаем данные
 df = load_data()
 
-st.write("Текущее расписание:")
-st.dataframe(df)
+# Берем только нужные колонки
+df_clean = df[['Название зоны', 'Начало', 'Конец']].dropna(how='all')
 
-# Кнопка для копирования
-if st.button("Копировать расписание"):
-    st.success("Расписание готово к копированию из таблицы ниже!")
+st.write("### Текущее расписание:")
+st.table(df_clean)
