@@ -1,43 +1,50 @@
 import streamlit as st
-import pandas as pd
-from datetime import datetime
+import random
 
+# Настройка страницы
+st.set_page_config(layout="wide")
 st.title("VR-Парк: Планировщик")
 
-# --- Настройки ---
-ZONES = ["VR-Арена (1)", "VR-Арена (2)", "VR-Арена (Объединенная)", "Аура", "Пиксель", "Аттракционы"]
-PACKAGES = ["Серебро", "Золото", "Платина"]
-ADD_ONS = ["Нет", "10 катаний", "Безлимит на аттракционы"]
+# Инициализация состояния для каждого варианта
+if 'scenarios' not in st.session_state:
+    st.session_state.scenarios = {
+        "Частый": "Сценарий: VR-Арена -> Гонки -> Поздравление",
+        "Активный": "Сценарий: Гонки -> Арена -> Аттракционы",
+        "Сбалансированный": "Сценарий: Арена (ч.1) -> Поздравление -> Арена (ч.2)"
+    }
 
-# --- Интерфейс ---
-mode = st.radio("Режим:", ["Готовый тариф", "Индивидуальный"])
+def regenerate_option(option_name):
+    # Логика "генерации" (здесь будет ваш алгоритм)
+    st.session_state.scenarios[option_name] = f"Новый сценарий {random.randint(1,100)} для {option_name}"
 
-if mode == "Готовый тариф":
-    col1, col2 = st.columns(2)
-    with col1:
-        pkg = st.selectbox("Тариф:", PACKAGES)
-    with col2:
-        add_on = st.selectbox("Доп. опция:", ADD_ONS)
+# Интерфейс ввода
+col_input1, col_input2 = st.columns(2)
+with col_input1:
+    pkg = st.selectbox("Тариф:", ["Серебро", "Золото", "Платина"])
+with col_input2:
     duration = st.number_input("Длительность (мин):", 60, 300, 120)
-else:
-    selected_zones = st.multiselect("Выберите зоны:", ZONES + ["Аттракционы"])
-    duration = st.number_input("Длительность (мин):", 60, 300, 120)
 
-start_time = st.time_input("Время начала:", value=datetime.strptime("12:00", "%H:%M").time())
+# Генерация карточек
+st.write("---")
+cols = st.columns(3)
 
-# --- Логика генерации ---
-if st.button("Сгенерировать 3 варианта"):
-    st.write("---")
-    cols = st.columns(3)
-    variants = ["Частый", "Активный", "Сбалансированный"]
-    
-    for i, var in enumerate(variants):
-        with cols[i]:
-            st.subheader(var)
-            # Здесь будет вызываться движок генерации расписания
-            st.info(f"Сценарий: {var}\nДлительность: {duration} мин")
+for i, (name, content) in enumerate(st.session_state.scenarios.items()):
+    with cols[i]:
+        # Контейнер для фиксации размера
+        with st.container(border=True):
+            st.subheader(name)
+            st.write(content)
             
-            if st.button(f"Подходит", key=f"btn_ok_{i}"):
-                st.success("Скопировано в буфер!")
-            st.button(f"Другой формат", key=f"btn_alt_{i}")
-            st.button(f"Плохой", key=f"btn_bad_{i}")
+            # Кнопки действия
+            if st.button("✅ Подходит", key=f"ok_{name}"):
+                st.success("Скопировано!")
+                st.write(f'<script>navigator.clipboard.writeText("{content}")</script>', unsafe_allow_html=True)
+            
+            # Перегенерация только одного блока
+            if st.button("🔄 Другой формат", key=f"alt_{name}"):
+                regenerate_option(name)
+                st.rerun()
+            
+            if st.button("❌ Плохой", key=f"bad_{name}"):
+                regenerate_option(name)
+                st.rerun()
