@@ -1,34 +1,54 @@
 import streamlit as st
 from datetime import datetime, timedelta
 
-# --- База знаний (Ваши идеальные шаблоны) ---
-TEMPLATES = {
-    "Платина": {
-        "Частый": [("Сбор", 15), ("Арена (цельная)", 90), ("Отдых", 15), ("Пиксель + Аура", 45), ("Поздравление", 10), ("Отдых, чаепитие", 35), ("Аттракционы", 30)],
-        "Сбалансированный": [("Сбор", 15), ("Арена (ч.1)", 45), ("Отдых", 15), ("Пиксель + Аура", 60), ("Арена (ч.2)", 45), ("Поздравление", 10), ("Отдых, чаепитие", 35), ("Аттракционы", 30)]
-    }
-}
+st.set_page_config(layout="wide")
+st.title("VR-Парк: Конструктор расписания")
 
-# --- Логика ---
-def get_schedule(tariff, variant, start_time):
-    # Берем шаблон, если есть, или дефолт
-    blocks = TEMPLATES.get(tariff, {}).get(variant, [("Сбор", 15), ("Игра", 60), ("Поздравление", 10)])
+# 1. Интерфейс ввода
+with st.sidebar:
+    st.header("Настройки мероприятия")
+    start_time = st.time_input("Время начала:", value=datetime.strptime("12:00", "%H:%M").time())
+    total_hours = st.number_input("Общая длительность (часы):", 1, 8, 3)
+    total_mins = st.number_input("Дополнительные минуты:", 0, 59, 0)
     
-    curr = datetime.combine(datetime.today(), start_time)
-    lines = []
-    for task, minutes in blocks:
-        end = curr + timedelta(minutes=minutes)
-        lines.append(f"{curr.strftime('%H:%M')}-{end.strftime('%H:%M')} - {task}")
-        curr = end
-    return "\n".join(lines)
+    st.write("---")
+    st.subheader("Добавьте зоны:")
+    zones_input = []
+    # Добавляем 5 слотов для зон
+    for i in range(5):
+        c1, c2, c3 = st.columns([2, 1, 1])
+        z_name = c1.text_input(f"Зона {i+1}", key=f"n_{i}")
+        z_h = c2.number_input("Ч", 0, 5, 0, key=f"h_{i}")
+        z_m = c3.number_input("М", 0, 59, 0, key=f"m_{i}")
+        if z_name and (z_h > 0 or z_m > 0):
+            zones_input.append((z_name, z_h * 60 + z_m))
 
-# --- Интерфейс ---
-tariff = st.selectbox("Тариф:", ["Платина", "Золото", "Серебро"])
-start_time = st.time_input("Время начала:", value=datetime.strptime("12:00", "%H:%M").time())
+# 2. Логика генератора
+total_duration = total_hours * 60 + total_mins
+sbor = 15
+pozdrav = 10
+occupied_time = sum([z[1] for z in zones_input])
+rest_time = total_duration - sbor - pozdrav - occupied_time
 
-cols = st.columns(3)
-for i, var in enumerate(["Частый", "Активный", "Сбалансированный"]):
-    with cols[i]:
-        st.subheader(var)
-        st.text(get_schedule(tariff, var, start_time))
-        if st.button(f"🔄 Перегенерировать {var}", key=f"btn_{i}"): st.rerun()
+# 3. Вывод расписания
+st.subheader("Сгенерированный тайминг:")
+curr = datetime.combine(datetime.today(), start_time)
+
+# Блок сбора
+st.text(f"{curr.strftime('%H:%M')} - { (curr + timedelta(minutes=sbor)).strftime('%H:%M')} - Сбор гостей")
+curr += timedelta(minutes=sbor)
+
+# Блоки зон
+for name, mins in zones_input:
+    end = curr + timedelta(minutes=mins)
+    st.text(f"{curr.strftime('%H:%M')} - {end.strftime('%H:%M')} - {name}")
+    curr = end
+
+# Блок отдыха (если осталось время)
+if rest_time > 0:
+    end = curr + timedelta(minutes=rest_time)
+    st.text(f"{curr.strftime('%H:%M')} - {end.strftime('%H:%M')} - Комната отдыха (свободное время)")
+    curr = end
+
+# Поздравление
+st.text(f"{curr.strftime('%H:%M')} - { (curr + timedelta(minutes=pozdrav)).strftime('%H:%M')} - Поздравление")
