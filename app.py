@@ -1,50 +1,49 @@
 import streamlit as st
-import random
 
-# Настройка страницы
 st.set_page_config(layout="wide")
 st.title("VR-Парк: Планировщик")
 
-# Инициализация состояния для каждого варианта
-if 'scenarios' not in st.session_state:
-    st.session_state.scenarios = {
-        "Частый": "Сценарий: VR-Арена -> Гонки -> Поздравление",
-        "Активный": "Сценарий: Гонки -> Арена -> Аттракционы",
-        "Сбалансированный": "Сценарий: Арена (ч.1) -> Поздравление -> Арена (ч.2)"
-    }
+# --- Справочники ---
+ALL_TARIFFS = ["Серебро", "Золото", "Платина", "Титан", "Изумруд", "Бриллиант"]
+ADD_ONS = ["Нет", "10 катаний", "Безлимит на аттракционы"]
+ZONES = ["VR-Арена (1)", "VR-Арена (2)", "VR-Арена (Объединенная)", "Аура", "Пиксель", "Аттракционы", "Комната отдыха"]
 
-def regenerate_option(option_name):
-    # Логика "генерации" (здесь будет ваш алгоритм)
-    st.session_state.scenarios[option_name] = f"Новый сценарий {random.randint(1,100)} для {option_name}"
+# --- Интерфейс ---
+mode = st.radio("Режим:", ["Готовый тариф", "Индивидуальный"], horizontal=True)
 
-# Интерфейс ввода
-col_input1, col_input2 = st.columns(2)
-with col_input1:
-    pkg = st.selectbox("Тариф:", ["Серебро", "Золото", "Платина"])
-with col_input2:
-    duration = st.number_input("Длительность (мин):", 60, 300, 120)
+if mode == "Готовый тариф":
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        pkg = st.selectbox("Тариф:", ALL_TARIFFS)
+    with col2:
+        add_on = st.selectbox("Доп. опция:", ADD_ONS)
+    with col3:
+        duration = st.number_input("Длительность (мин):", 60, 300, 120)
+else:
+    col1, col2 = st.columns(2)
+    with col1:
+        selected_zones = st.multiselect("Выберите зоны:", ZONES)
+    with col2:
+        duration = st.number_input("Длительность (мин):", 60, 300, 120)
 
-# Генерация карточек
 st.write("---")
-cols = st.columns(3)
 
-for i, (name, content) in enumerate(st.session_state.scenarios.items()):
+# --- Логика генерации (Карточки) ---
+cols = st.columns(3)
+variants = ["Частый", "Активный", "Сбалансированный"]
+
+for i, var in enumerate(variants):
     with cols[i]:
-        # Контейнер для фиксации размера
         with st.container(border=True):
-            st.subheader(name)
-            st.write(content)
+            st.subheader(var)
+            st.write(f"Сценарий: [Здесь будет логика для {var}]")
             
-            # Кнопки действия
-            if st.button("✅ Подходит", key=f"ok_{name}"):
+            # Кнопки с обновлением только этого блока
+            if st.button("✅ Подходит", key=f"ok_{var}"):
                 st.success("Скопировано!")
-                st.write(f'<script>navigator.clipboard.writeText("{content}")</script>', unsafe_allow_html=True)
             
-            # Перегенерация только одного блока
-            if st.button("🔄 Другой формат", key=f"alt_{name}"):
-                regenerate_option(name)
-                st.rerun()
+            if st.button("🔄 Другой формат", key=f"alt_{var}"):
+                st.rerun() # Обновляет страницу для имитации перегенерации
             
-            if st.button("❌ Плохой", key=f"bad_{name}"):
-                regenerate_option(name)
+            if st.button("❌ Плохой", key=f"bad_{var}"):
                 st.rerun()
