@@ -8,13 +8,25 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1SOkxp55acIcaTUt_dKMtoab0Vo2
 
 @st.cache_data(ttl=60)
 def load_data():
-    # header=3 говорит pandas, что заголовки начинаются с 4-й строки
+    # header=3, так как заголовки начинаются с 4-й строки (индекс 3)
     return pd.read_csv(SHEET_URL, header=3)
 
 df = load_data()
 
-st.write("### Структура таблицы (что видит программа):")
-st.write(df.columns.tolist())  # Это покажет нам реальные названия колонок
+# Оставляем только строки, где есть название зоны
+df_clean = df.dropna(subset=['Название зоны'])
 
-st.write("### Все данные:")
-st.dataframe(df)
+# Выбираем для отображения только нужные столбцы
+df_final = df_clean[['Название зоны', 'Начало', 'Конец']]
+
+st.write("### Текущее расписание:")
+st.table(df_final)
+
+# Добавляем возможность скачать данные
+csv = df_final.to_csv(index=False).encode('utf-8')
+st.download_button(
+    label="Скачать расписание (CSV)",
+    data=csv,
+    file_name='raspisanie.csv',
+    mime='text/csv',
+)
