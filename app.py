@@ -2,53 +2,56 @@ import streamlit as st
 from datetime import datetime, timedelta
 
 st.set_page_config(layout="wide")
-st.title("VR-Парк: Конструктор расписания")
+st.title("VR-Парк: Умный конструктор")
 
-# 1. Интерфейс ввода
+# Справочник доступных зон
+AVAILABLE_ZONES = ["VR-Арена", "Зона Ауры", "Пиксель", "Аттракционы", "Шоу ведущего", "Квиз", "Мафия"]
+
+# 1. Боковая панель
 with st.sidebar:
-    st.header("Настройки мероприятия")
+    st.header("Настройки")
     start_time = st.time_input("Время начала:", value=datetime.strptime("12:00", "%H:%M").time())
-    total_hours = st.number_input("Общая длительность (часы):", 1, 8, 3)
-    total_mins = st.number_input("Дополнительные минуты:", 0, 59, 0)
+    total_minutes = st.number_input("Общая длительность (минут):", 60, 480, 180)
     
     st.write("---")
-    st.subheader("Добавьте зоны:")
-    zones_input = []
-    # Добавляем 5 слотов для зон
-    for i in range(5):
-        c1, c2, c3 = st.columns([2, 1, 1])
-        z_name = c1.text_input(f"Зона {i+1}", key=f"n_{i}")
-        z_h = c2.number_input("Ч", 0, 5, 0, key=f"h_{i}")
-        z_m = c3.number_input("М", 0, 59, 0, key=f"m_{i}")
-        if z_name and (z_h > 0 or z_m > 0):
-            zones_input.append((z_name, z_h * 60 + z_m))
+    st.subheader("Зоны мероприятия")
+    # Динамический список зон
+    if 'zones_list' not in st.session_state:
+        st.session_state.zones_list = [{"name": "VR-Арена", "time": 60}]
 
-# 2. Логика генератора
-total_duration = total_hours * 60 + total_mins
+    for i, z in enumerate(st.session_state.zones_list):
+        c1, c2 = st.columns([2, 1])
+        st.session_state.zones_list[i]["name"] = c1.selectbox(f"Зона {i+1}", AVAILABLE_ZONES, index=AVAILABLE_ZONES.index(z["name"]), key=f"n_{i}")
+        st.session_state.zones_list[i]["time"] = c2.number_input("Мин", 0, 300, z["time"], key=f"t_{i}")
+
+    if st.button("➕ Добавить зону"):
+        st.session_state.zones_list.append({"name": "VR-Арена", "time": 30})
+        st.rerun()
+
+# 2. Логика расчёта
 sbor = 15
 pozdrav = 10
-occupied_time = sum([z[1] for z in zones_input])
-rest_time = total_duration - sbor - pozdrav - occupied_time
+occupied = sum(z["time"] for z in st.session_state.zones_list)
+rest = total_minutes - sbor - pozdrav - occupied
 
 # 3. Вывод расписания
 st.subheader("Сгенерированный тайминг:")
 curr = datetime.combine(datetime.today(), start_time)
 
-# Блок сбора
-st.text(f"{curr.strftime('%H:%M')} - { (curr + timedelta(minutes=sbor)).strftime('%H:%M')} - Сбор гостей")
+# Пошаговая сборка
+schedule = [(curr, "Сбор гостей", sbor)]
 curr += timedelta(minutes=sbor)
 
-# Блоки зон
-for name, mins in zones_input:
-    end = curr + timedelta(minutes=mins)
-    st.text(f"{curr.strftime('%H:%M')} - {end.strftime('%H:%M')} - {name}")
-    curr = end
+for z in st.session_state.zones_list:
+    schedule.append((curr, z["name"], z["time"]))
+    curr += timedelta(minutes=z["time"])
 
-# Блок отдыха (если осталось время)
-if rest_time > 0:
-    end = curr + timedelta(minutes=rest_time)
-    st.text(f"{curr.strftime('%H:%M')} - {end.strftime('%H:%M')} - Комната отдыха (свободное время)")
-    curr = end
+if rest > 0:
+    schedule.append((curr, "Комната отдыха (свободное время)", rest))
+    curr += timedelta(minutes=rest)
 
-# Поздравление
-st.text(f"{curr.strftime('%H:%M')} - { (curr + timedelta(minutes=pozdrav)).strftime('%H:%M')} - Поздравление")
+schedule.append((curr, "Поздравление", pozdrav))
+
+# Отображение
+for t, name, dur in schedule:
+    st.text(f"{t.strftime('%H:%M')} - {(t + timedelta(minutes=dur)).strftime('%H:%M')} — {name}")
