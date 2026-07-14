@@ -5,52 +5,56 @@ st.set_page_config(layout="wide")
 st.title("VR-Парк: Умный планировщик")
 
 # --- Справочники ---
-TARIFF_DATA = {
-    "Серебро": 120, "Золото": 180, "Платина": 240, 
-    "Титан": 240, "Изумруд": 240, "Бриллиант": 360
-}
+TARIFF_DATA = {"Серебро": 120, "Золото": 180, "Платина": 240, "Титан": 240, "Изумруд": 240, "Бриллиант": 360}
+ADD_ONS = ["Нет", "10 катаний", "Безлимит на аттракционы"]
 VARIANTS = ["Частый", "Активный", "Сбалансированный"]
 
 # --- Интерфейс ---
-col1, col2, col3 = st.columns(3)
-with col1:
-    tariff = st.selectbox("Тариф:", list(TARIFF_DATA.keys()))
-with col2:
-    duration = st.number_input("Длительность (мин):", 60, 480, TARIFF_DATA[tariff])
-with col3:
-    start_time = st.time_input("Время начала:", value=datetime.strptime("12:00", "%H:%M").time())
+mode = st.radio("Режим:", ["Готовый тариф", "Индивидуальный"], horizontal=True)
 
-# --- Движок генерации (Логика) ---
-def get_schedule(variant, duration, start_time):
-    # Базовые блоки
-    sbor = 15
-    pozdrav = 10
-    game_time = duration - sbor - pozdrav
+if mode == "Готовый тариф":
+    c1, c2, c3 = st.columns(3)
+    tariff = c1.selectbox("Тариф:", list(TARIFF_DATA.keys()))
+    add_on = c2.selectbox("Доп. опция:", ADD_ONS)
+    duration = c3.number_input("Длительность (мин):", 60, 480, TARIFF_DATA[tariff])
+else:
+    c1, c2 = st.columns(2)
+    zones = c1.multiselect("Выберите зоны:", ["Арена", "Аура", "Пиксель", "Аттракционы"])
+    duration = c2.number_input("Длительность (мин):", 60, 480, 180)
+
+start_time = st.time_input("Время начала:", value=datetime.strptime("12:00", "%H:%M").time())
+
+# --- Логика генерации ---
+def get_blocks(variant, total_dur):
+    # Сбор всегда за 15 минут до начала (внутри 15-мин блока)
+    blocks = [("Сбор гостей", 15)]
+    game_time = total_dur - 15 - 10 # 10 - Поздравление
     
-    # Имитация сборки блоков (для примера "Золото")
     if variant == "Частый":
-        return [("Сбор", sbor), ("Арена (цельная)", game_time * 0.7), ("Аура + Катания", game_time * 0.3), ("Поздравление", pozdrav)]
+        blocks += [("Арена (цельная)", game_time * 0.7), ("Аура+Катания", game_time * 0.3)]
     elif variant == "Сбалансированный":
-        return [("Сбор", sbor), ("Арена (ч.1)", game_time * 0.35), ("Перекус", 15), ("Арена (ч.2)", game_time * 0.35), ("Аура", game_time * 0.3), ("Поздравление", pozdrav)]
-    else: # Активный
-        return [("Сбор", sbor), ("Нон-стоп (Арена+Аура+Катания)", game_time), ("Поздравление", pozdrav)]
+        blocks += [("Арена ч.1", game_time * 0.35), ("Перекус", 15), ("Арена ч.2", game_time * 0.35), ("Аура", game_time * 0.2)]
+    else:
+        blocks += [("Активный нон-стоп", game_time)]
+    
+    blocks.append(("Поздравление", 10))
+    return blocks
 
-# --- Отображение ---
+st.write("---")
 cols = st.columns(3)
+
+# Инициализация сессии для кнопок "Другой формат"
+if 'rerun_count' not in st.session_state: st.session_state.rerun_count = 0
+
 for i, var in enumerate(VARIANTS):
     with cols[i]:
         with st.container(border=True):
             st.subheader(var)
-            current_time = datetime.combine(datetime.today(), start_time)
-            lines = []
+            curr = datetime.combine(datetime.today(), start_time)
+            for task, minutes in get_blocks(var, duration):
+                end = curr + timedelta(minutes=minutes)
+                st.text(f"{curr.strftime('%H:%M')}-{end.strftime('%H:%M')} - {task}")
+                curr = end
             
-            for task, minutes in get_schedule(var, duration, start_time):
-                end_time = current_time + timedelta(minutes=minutes)
-                lines.append(f"{current_time.strftime('%H:%M')}-{end_time.strftime('%H:%M')} - {task}")
-                current_time = end_time
-            
-            text_out = "\n".join(lines)
-            st.text(text_out)
-            
-            if st.button("✅ Подходит (Скопировать)", key=f"copy_{var}"):
-                st.info("Скопировано!") # Можно добавить JS для авто-копирования
+            if st.button("✅ Подходит", key=f"ok_{i}"): st.success("Скопировано!")
+            if st.button("🔄 Другой формат", key=f"alt_{i}"): st.rerun()
